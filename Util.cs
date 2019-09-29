@@ -37,7 +37,7 @@ namespace Memoriam
             {
                 if (cmd[index] == separatorEsc)
                 {
-                    while (index < cmd.Length && cmd[index] != separatorEsc) builder.Append(cmd[++index]);
+                    while (++index < cmd.Length && cmd[index] != separatorEsc) builder.Append(cmd[index]);
                     if (index == cmd.Length)
                     {
                         cmdParams = null;
@@ -45,7 +45,11 @@ namespace Memoriam
                     }
                     segments.Add(builder.ToString());
                     builder.Clear();
-                    index++;
+                    if (++index == cmd.Length)
+                    {
+                        cmdParams = segments.ToArray();
+                        return true;
+                    }
                 }
 
                 if (cmd[index] == separator)
@@ -56,10 +60,12 @@ namespace Memoriam
                         builder.Clear();
                     }
                     index++;
+                    continue;
                 }
-                builder.Append(cmd[++index]);
+                builder.Append(cmd[index++]);
             }
 
+            segments.Add(builder.ToString());
             cmdParams = segments.ToArray();
             return true;
         }

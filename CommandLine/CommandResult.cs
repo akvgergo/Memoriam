@@ -10,6 +10,7 @@ namespace Memoriam
     {
         public int resultcode { get; private set; }
         public string message { get; private set; }
+        static readonly CommandResult _success = new CommandResult(0);
 
         public CommandResult(int code, string msg = "")
         {
@@ -19,7 +20,7 @@ namespace Memoriam
 
         public static CommandResult Success {
             get {
-                return new CommandResult(0);
+                return _success;
             }
         }
 

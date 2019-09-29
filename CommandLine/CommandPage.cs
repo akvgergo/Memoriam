@@ -16,6 +16,8 @@ namespace Memoriam
         protected bool EndOfCommand;
         public string CommandPrefix { get; protected set; } = ">";
         public List<string> CommandHistory = new List<string>();
+        protected int historyIndex = 0;
+        
 
         public override int StartPage()
         {
@@ -116,8 +118,7 @@ namespace Memoriam
             };
 
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.Delete, false, false, false)] = () => {
-                if (Console.CursorLeft < CommandPrefix.Length + CurrentCommand.Length)
-                {
+                if (Console.CursorLeft < CommandPrefix.Length + CurrentCommand.Length) {
                     var pos = Console.CursorLeft;
                     Console.Write(new string(' ', CommandPrefix.Length + CurrentCommand.Length - Console.CursorLeft));
                     CurrentCommand.Remove(pos - CommandPrefix.Length, 1);
@@ -126,6 +127,33 @@ namespace Memoriam
                     Console.CursorLeft = pos;
                 }
             };
+
+            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false)] = () => {
+                if (CommandHistory.Count != 0)
+                {
+                    Console.CursorLeft = CommandPrefix.Length;
+                    Console.Write(new string(' ', CurrentCommand.Length));
+                    Console.CursorLeft = CommandPrefix.Length;
+                    historyIndex = historyIndex == 0 ? CommandHistory.Count - 1 : historyIndex - 1;
+                    CurrentCommand.Clear();
+                    CurrentCommand.Append(CommandHistory[historyIndex]);
+                    Console.Write(CommandHistory[historyIndex]);
+                }
+            };
+
+            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)] = () => {
+                if (CommandHistory.Count != 0)
+                {
+                    Console.CursorLeft = CommandPrefix.Length;
+                    Console.Write(new string(' ', CurrentCommand.Length));
+                    Console.CursorLeft = CommandPrefix.Length;
+                    historyIndex = historyIndex == CommandHistory.Count - 1 ? 0 : historyIndex + 1;
+                    CurrentCommand.Clear();
+                    CurrentCommand.Append(CommandHistory[historyIndex]);
+                    Console.Write(CommandHistory[historyIndex]);
+                }
+            };
+
         }
 
         protected void AutoComplete()
@@ -193,8 +221,10 @@ namespace Memoriam
 
         protected void ProcessCommand()
         {
+            string cmd = CurrentCommand.ToString();
+            CommandHistory.Add(cmd);
             Console.WriteLine();
-            string cmdId = CurrentCommand.ReadToCharOrEnd(' ');
+            string cmdId = cmd.ReadToCharOrEnd(' ');
             if (CommandSet.ContainsKey(cmdId))
             {
                 var result = RunCommand(CurrentCommand.ToString());
@@ -215,7 +245,8 @@ namespace Memoriam
             if (cmdParams.Length > 1)
             {
                 Command value;
-                if (!CommandSet.TryGetValue(cmdParams[1], out value)) return new CommandResult(1, "\"" + cmdParams[1] + "\" is not recognized as a command");
+                if (!CommandSet.TryGetValue(cmdParams[1], out value))
+                    return new CommandResult(1, "\"" + cmdParams[1] + "\" is not recognized as a command");
 
                 Console.WriteLine(value.Help);
 

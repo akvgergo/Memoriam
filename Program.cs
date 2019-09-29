@@ -4,8 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using System.IO.Compression;
 using System.Diagnostics;
+using ICSharpCode.SharpZipLib;
+using ICSharpCode.SharpZipLib.Core;
+using ICSharpCode.SharpZipLib.Zip;
+
 
 namespace Memoriam
 {
@@ -13,29 +16,37 @@ namespace Memoriam
     {
         static void Main(string[] args)
         {
+
             CommandPage startPage = new CommandPage();
-            startPage.AddCommand(new Command("ziptext", (s) =>
+            startPage.AddCommand(new Command("zip", (s) =>
             {
-                var cmdParams = s.Split(' ');
-                if (cmdParams.Length < 2 || File.Exists(cmdParams[1] + ".txt") || File.Exists(cmdParams[1] + ".zip"))
-                    return new CommandResult(-1, "IO error: files already exist");
-                File.Create(cmdParams[1] + ".txt").Dispose();
-                var proc = Process.Start(cmdParams[1] + ".txt");
-                Console.WriteLine("Don't forget to save!");
-                proc.WaitForExit();
-                using (FileStream stream = new FileStream(cmdParams[1] + ".zip", FileMode.Create))
+                string[] cmdParams;
+                if (!Util.TrySplitCommand(s, out cmdParams))
                 {
-                    ZipArchive archive = new ZipArchive(stream, ZipArchiveMode.Create);
-                    archive.CreateEntryFromFile(cmdParams[1] + ".txt", cmdParams[1] + ".txt", CompressionLevel.Optimal);
-                    archive.Dispose();
+                    return new CommandResult(-1, "Unable to parse command.");
                 }
-                File.Delete(cmdParams[1] + ".txt");
-                Process.Start(cmdParams[1] + ".zip");
-                return new CommandResult(1, "Success!");
+                if (File.Exists(cmdParams[1]))
+                {
+                    return new CommandResult(-1, "file already exists");
+                }
+
+                using (ZipFile zip = ZipFile.Create(cmdParams[1]))
+                {
+                    zip.BeginUpdate();
+                    zip.Password = "password";
+                    File.WriteAllText("text.txt", "Lorem ipsum\ndolor sit amet");
+                    ZipEntryFactory fac = new ZipEntryFactory();
+                    var entry = fac.MakeFileEntry("text.txt");
+                    entry.AESKeySize = 256;
+                    zip.Add(entry);
+                    zip.CommitUpdate();
+                }
+
+                return CommandResult.Success;
             })
             {
-                Description = "Creates a txt, opens it for the user, then compresses the saved file",
-                Help = "ziptext <filename>"
+                Description = "Creates a zip file",
+                Help = "zip <filename>"
             });
             startPage.StartPage();
         }
