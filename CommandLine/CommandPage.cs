@@ -14,10 +14,12 @@ namespace Memoriam
         protected Dictionary<ConsoleKeyInfo, Action> FunctionKeys = new Dictionary<ConsoleKeyInfo, Action>();
         protected bool EndingLoop;
         protected bool EndOfCommand;
-        public string CommandPrefix { get; protected set; } = ">";
-        public List<string> CommandHistory = new List<string>();
         protected int historyIndex = 0;
-        
+
+        public List<string> CommandHistory = new List<string>();
+
+        public string CommandPrefix { get; protected set; } = ">";
+        public bool AllowMultiline { get; set; } = false;
 
         public override int StartPage()
         {
@@ -49,6 +51,7 @@ namespace Memoriam
                     {
                         if (keyPress.KeyChar != '\0')
                         {
+                            if (!AllowMultiline && CommandPrefix.Length + CurrentCommand.Length == Console.BufferWidth) continue;
                             if (Console.CursorLeft == CommandPrefix.Length + CurrentCommand.Length)
                             {
                                 Console.Write(keyPress.KeyChar);
@@ -87,6 +90,16 @@ namespace Memoriam
             //    Console.WriteLine((int)key.KeyChar);
             //    Console.WriteLine(key.Key);
             //}));
+
+            AddCommand(new Command("cat", (s) => 
+            {
+                string[] cmdParams;
+                Util.TrySplitCommand(s, out cmdParams);
+                for (int i = 1; i < cmdParams.Length; i++)
+                {
+                    Console.WriteLine(cmdParams[i]);
+                }
+            }));
         }
 
         protected void RegisterBaseKeys()
