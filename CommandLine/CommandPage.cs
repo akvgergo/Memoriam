@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Memoriam
+namespace Commandline
 {
 
     public class CommandPage : ConsolePage
@@ -90,7 +90,10 @@ namespace Memoriam
             //    Console.WriteLine((int)key.KeyChar);
             //    Console.WriteLine(key.Key);
             //}));
+            if (GetType() == typeof(CommandPage))
+            {
 
+            }
             AddCommand(new Command("cat", (s) => 
             {
                 string[] cmdParams;
@@ -219,12 +222,13 @@ namespace Memoriam
 
         public void AddCommand(string id, Action<string> func)
         {
-            CommandSet.Add(id, new Command(id, (s) => { func.Invoke(s); }));
+            AddCommand(id, (s) => { func.Invoke(s); });
         }
 
         public void AddCommand(string id, Func<string, CommandResult> func)
         {
-            CommandSet.Add(id, new Command(id, func));
+            
+            AddCommand(new Command(id, func));
         }
 
         protected CommandResult RunCommand(string cmd)
@@ -241,9 +245,9 @@ namespace Memoriam
             if (CommandSet.ContainsKey(cmdId))
             {
                 var result = RunCommand(CurrentCommand.ToString());
-                if (result.resultcode != 0)
+                if (result.Resultcode != 0)
                 {
-                    Console.WriteLine(result.message);
+                    Console.WriteLine(result.Message);
                 }
             } else
             {

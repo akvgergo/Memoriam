@@ -6,16 +6,22 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Diagnostics;
 using Ionic.Zip;
-
+using Commandline;
 
 namespace Memoriam
 {
     class Program
-    {
+    {   
+        [CommandInfo("","")]
         static void Main(string[] args)
         {
-            StartPage startPage = new StartPage();
-            startPage.StartPage();
+            
+            foreach (var item in System.Reflection.MethodBase.GetCurrentMethod().GetCustomAttributes(false))
+            {
+                var help = item as CommandInfoAttribute;
+                if (help == null) continue;
+                help.
+            }
         }
 
     }

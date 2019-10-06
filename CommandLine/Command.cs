@@ -4,9 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Memoriam
+namespace Commandline
 {
-
     public class Command
     {
         public string Id { get; private set; }
@@ -28,6 +27,5 @@ namespace Memoriam
             Function = (s) => { action.Invoke(s); return CommandResult.Success; };
             AutoComplete = autoComplete == null ? (s) => { return string.Empty; } : autoComplete;
         }
-
     }
 }

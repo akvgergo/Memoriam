@@ -34,7 +34,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DotNetZip, Version=1.13.4.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
-      <HintPath>..\packages\DotNetZip.1.13.4\lib\net40\DotNetZip.dll</HintPath>
+      <HintPath>packages\DotNetZip.1.13.4\lib\net40\DotNetZip.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -49,13 +50,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CommandLine\Command.cs" />
+    <Compile Include="CommandLine\CommandInfoAttribute.cs" />
     <Compile Include="CommandLine\CommandPage.cs" />
     <Compile Include="CommandLine\CommandResult.cs" />
     <Compile Include="CommandLine\ConsolePage.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StartPage.cs" />
-    <Compile Include="Util.cs" />
+    <Compile Include="CommandLine\Util.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
