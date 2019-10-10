@@ -12,16 +12,11 @@ namespace Memoriam
 {
     class Program
     {   
-        [CommandInfo("","")]
         static void Main(string[] args)
         {
-            
-            foreach (var item in System.Reflection.MethodBase.GetCurrentMethod().GetCustomAttributes(false))
-            {
-                var help = item as CommandInfoAttribute;
-                if (help == null) continue;
-                help.
-            }
+            CommandLine page = new CommandLine();
+            page.Show();
+
         }
 
     }

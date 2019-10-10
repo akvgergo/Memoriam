@@ -51,9 +51,9 @@
   <ItemGroup>
     <Compile Include="CommandLine\Command.cs" />
     <Compile Include="CommandLine\CommandInfoAttribute.cs" />
-    <Compile Include="CommandLine\CommandPage.cs" />
+    <Compile Include="CommandLine\CommandLine.cs" />
     <Compile Include="CommandLine\CommandResult.cs" />
-    <Compile Include="CommandLine\ConsolePage.cs" />
+    <Compile Include="CommandLine\ConsoleDialog.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StartPage.cs" />

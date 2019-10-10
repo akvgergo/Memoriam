@@ -7,8 +7,9 @@ using Commandline;
 
 namespace Memoriam
 {
-    public class StartPage : CommandPage
+    public class StartPage : CommandLine
     {
+
         
         protected override void Init()
         {
@@ -16,6 +17,7 @@ namespace Memoriam
 
             
         }
+        
 
         CommandResult Open(string cmd)
         {

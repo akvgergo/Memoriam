@@ -6,28 +6,57 @@ using System.Threading.Tasks;
 
 namespace Commandline
 {
-
-    public class CommandPage : ConsolePage
+    /// <summary>
+    /// A page with all the basic functionality to input and run registered <see cref="Command"/> instances, or assign functions to specific keys
+    /// </summary>
+    public class CommandLine : ConsoleDialog
     {
-        protected StringBuilder CurrentCommand = new StringBuilder(30);
-        protected Dictionary<string, Command> CommandSet = new Dictionary<string, Command>();
-        protected Dictionary<ConsoleKeyInfo, Action> FunctionKeys = new Dictionary<ConsoleKeyInfo, Action>();
-        protected bool EndingLoop;
-        protected bool EndOfCommand;
-        protected int historyIndex = 0;
 
+        #region Command editor
+
+        /// <summary>
+        /// The command currently in the input and edited by the user
+        /// </summary>
+        protected StringBuilder CurrentCommand = new StringBuilder(30);
+        /// <summary>
+        /// A string that will be displayed in front of the currently edited command, but itself can't be edited.
+        /// </summary>
+        public string CommandPrefix { get; protected set; } = ">";
+        /// <summary>
+        /// Tracks which previous command was grabbed from <see cref="CommandHistory"/> for navigating the history with the arrow keys.
+        /// </summary>
+        protected int HistoryIndex = 0;
+        /// <summary>
+        /// Contains all previously entered commands.
+        /// </summary>
         public List<string> CommandHistory = new List<string>();
 
-        public string CommandPrefix { get; protected set; } = ">";
-        public bool AllowMultiline { get; set; } = false;
+        #endregion
+        /// <summary>
+        /// The set of commands this instance can run, accessible by their ID
+        /// </summary>
+        protected Dictionary<string, Command> CommandSet = new Dictionary<string, Command>();
+        /// <summary>
+        /// The set of actions this instance will perform if the associated <see cref="ConsoleKeyInfo"/> is read.
+        /// </summary>
+        protected Dictionary<ConsoleKeyInfo, Action> FunctionKeys = new Dictionary<ConsoleKeyInfo, Action>();
+        /// <summary>
+        /// Marks that this instance will exit <see cref="RunKeyLoop"/> after the current command is done executing.
+        /// </summary>
+        protected bool EndingLoop;
+        /// <summary>
+        /// Marks that <see cref="CurrentCommand"/> should be reset.
+        /// </summary>
+        protected bool EndOfCommand;
 
-        public override int StartPage()
+
+        public override int Show()
         {
-            StartKeyLoop();
+            RunKeyLoop();
             return ResultValue;
         }
 
-        protected void StartKeyLoop()
+        protected void RunKeyLoop()
         {
             while (!EndingLoop)
             {
@@ -51,7 +80,6 @@ namespace Commandline
                     {
                         if (keyPress.KeyChar != '\0')
                         {
-                            if (!AllowMultiline && CommandPrefix.Length + CurrentCommand.Length == Console.BufferWidth) continue;
                             if (Console.CursorLeft == CommandPrefix.Length + CurrentCommand.Length)
                             {
                                 Console.Write(keyPress.KeyChar);
@@ -75,9 +103,7 @@ namespace Commandline
         {
             RegisterBaseKeys();
 
-            AddCommand(new Command("help", Help, Help_AC) {
-                Description = "Prints the list of available commands, or provides help with the secified one.",
-                Help = "help [command]" });
+            AddCommand(new Command("help", Help, Help_AC));
 
             AddCommand(new Command("exit", (s) => { EndingLoop = true; }) {
                 Description = "Ends the current process." });
@@ -90,7 +116,7 @@ namespace Commandline
             //    Console.WriteLine((int)key.KeyChar);
             //    Console.WriteLine(key.Key);
             //}));
-            if (GetType() == typeof(CommandPage))
+            if (GetType() == typeof(CommandLine))
             {
 
             }
@@ -150,10 +176,10 @@ namespace Commandline
                     Console.CursorLeft = CommandPrefix.Length;
                     Console.Write(new string(' ', CurrentCommand.Length));
                     Console.CursorLeft = CommandPrefix.Length;
-                    historyIndex = historyIndex == 0 ? CommandHistory.Count - 1 : historyIndex - 1;
+                    HistoryIndex = HistoryIndex == 0 ? CommandHistory.Count - 1 : HistoryIndex - 1;
                     CurrentCommand.Clear();
-                    CurrentCommand.Append(CommandHistory[historyIndex]);
-                    Console.Write(CommandHistory[historyIndex]);
+                    CurrentCommand.Append(CommandHistory[HistoryIndex]);
+                    Console.Write(CommandHistory[HistoryIndex]);
                 }
             };
 
@@ -163,10 +189,10 @@ namespace Commandline
                     Console.CursorLeft = CommandPrefix.Length;
                     Console.Write(new string(' ', CurrentCommand.Length));
                     Console.CursorLeft = CommandPrefix.Length;
-                    historyIndex = historyIndex == CommandHistory.Count - 1 ? 0 : historyIndex + 1;
+                    HistoryIndex = HistoryIndex == CommandHistory.Count - 1 ? 0 : HistoryIndex + 1;
                     CurrentCommand.Clear();
-                    CurrentCommand.Append(CommandHistory[historyIndex]);
-                    Console.Write(CommandHistory[historyIndex]);
+                    CurrentCommand.Append(CommandHistory[HistoryIndex]);
+                    Console.Write(CommandHistory[HistoryIndex]);
                 }
             };
 
@@ -255,7 +281,15 @@ namespace Commandline
             }
             EndOfCommand = true;
         }
+        /// <summary>
+        /// Returns the index of the character that the current cursor position will edit in <see cref="CurrentCommand"/>
+        /// </summary>
+        protected int GetCurrEditPos()
+        {
 
+        }
+
+        [CommandInfo("Prints the list of available commands, or provides help with the secified one.", "help [command]")]
         protected CommandResult Help(string cmd)
         {
             var cmdParams = cmd.Split(' ');

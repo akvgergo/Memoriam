@@ -6,19 +6,29 @@ using System.Threading.Tasks;
 
 namespace Commandline
 {
+    /// <summary>
+    /// Contains utility methods for various purposes that were not worth making a separate class.
+    /// </summary>
     public static class Util
     {
-
+        /// <summary>
+        /// Reads the string until a specified character, or returns a copy if that character is not in the string.
+        /// </summary>
+        /// <param name="c">The character at which the copying should stop.</param>
         public static string ReadToCharOrEnd(this string s, char c)
         {
             int index = 0;
             StringBuilder builder = new StringBuilder();
             while (index < s.Length && s[index] != c) builder.Append(s[index++], 1);
-
+            
             if (index == s.Length) return s;
             else return builder.ToString();
         }
 
+        /// <summary>
+        /// Reads the StringBuilder until a specified character, or returns a copy if that character is not in the StringBuilder.
+        /// </summary>
+        /// <param name="c">The character at which the copying should stop.</param>
         public static string ReadToCharOrEnd(this StringBuilder sb, char c)
         {
             int index = 0;
@@ -28,6 +38,16 @@ namespace Commandline
             return builder.ToString();
         }
 
+        /// <summary>
+        /// Tries to split the string into segments using the specified separator, but does not create a new segment if
+        /// the separater is enclosed in the specified escape character.
+        /// <para>Useful for splitting raw command strings.</para>
+        /// </summary>
+        /// <param name="cmd">The string to split.</param>
+        /// <param name="cmdParams">The array to contain the segments.</param>
+        /// <param name="separator">The character to split the string on.</param>
+        /// <param name="separatorEsc">The character, which if encountered, will not split further until another <paramref name="separatorEsc"/> is encountered.</param>
+        /// <returns>A <see cref="bool"/> that is <see cref="true"/> if no syntax errors were encountered.</returns>
         public static bool TrySplitCommand(string cmd, out string[] cmdParams, char separator = ' ', char separatorEsc = '"')
         {
             var index = 0;

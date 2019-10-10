@@ -22,6 +22,8 @@ namespace Commandline
         /// Message displayed if the <see cref="Resultcode"/> is non-zero.
         /// </summary>
         public string Message { get; private set; }
+
+        //Since this class is practically immutable, no need to create a new instance every time
         static CommandResult _success = new CommandResult(0);
 
         /// <summary>
@@ -36,7 +38,7 @@ namespace Commandline
         }
 
         /// <summary>
-        /// Returns a <c>CommandResult</c> instance with a <see cref="Resultcode"/> of 0.
+        /// Returns a <see cref="CommandResult"/> instance with a <see cref="Resultcode"/> of 0.
         /// </summary>
         public static CommandResult Success {
             get {
