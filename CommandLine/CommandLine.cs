@@ -30,8 +30,15 @@ namespace Commandline
         /// Contains all previously entered commands.
         /// </summary>
         public List<string> CommandHistory = new List<string>();
+        /// <summary>
+        /// Marks that <see cref="CurrentCommand"/> should be reset.
+        /// </summary>
+        protected bool EndOfCommand;
 
         #endregion
+
+        #region Command execution
+
         /// <summary>
         /// The set of commands this instance can run, accessible by their ID
         /// </summary>
@@ -44,11 +51,8 @@ namespace Commandline
         /// Marks that this instance will exit <see cref="RunKeyLoop"/> after the current command is done executing.
         /// </summary>
         protected bool EndingLoop;
-        /// <summary>
-        /// Marks that <see cref="CurrentCommand"/> should be reset.
-        /// </summary>
-        protected bool EndOfCommand;
 
+        #endregion
 
         public override int Show()
         {
@@ -116,10 +120,7 @@ namespace Commandline
             //    Console.WriteLine((int)key.KeyChar);
             //    Console.WriteLine(key.Key);
             //}));
-            if (GetType() == typeof(CommandLine))
-            {
 
-            }
             AddCommand(new Command("cat", (s) => 
             {
                 string[] cmdParams;
@@ -135,6 +136,11 @@ namespace Commandline
         {
             FunctionKeys[new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false)] = AutoComplete;
             FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false)] = ProcessCommand;
+
+            FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, true, false, false)] = () => {
+                CurrentCommand.Append('\n');
+                Console.WriteLine();
+            };
 
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false)] = () => {
                 if (Console.CursorLeft < CurrentCommand.Length + CommandPrefix.Length)
@@ -242,6 +248,8 @@ namespace Commandline
             return string.Empty;
         }
 
+        #region Exposing CommandSet
+
         public void AddCommand(Command cmd) {
             CommandSet.Add(cmd.Id, cmd);
         }
@@ -253,9 +261,10 @@ namespace Commandline
 
         public void AddCommand(string id, Func<string, CommandResult> func)
         {
-            
             AddCommand(new Command(id, func));
         }
+
+        #endregion
 
         protected CommandResult RunCommand(string cmd)
         {
@@ -286,7 +295,7 @@ namespace Commandline
         /// </summary>
         protected int GetCurrEditPos()
         {
-
+            return 0;
         }
 
         [CommandInfo("Prints the list of available commands, or provides help with the secified one.", "help [command]")]
