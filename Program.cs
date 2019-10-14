@@ -14,11 +14,7 @@ namespace Memoriam
     {   
         static void Main(string[] args)
         {
-            Console.WriteLine(Console.ReadLine());
-            Console.ReadKey();
-
-            CommandLine page = new CommandLine();
-            page.Show();
+            
 
         }
 

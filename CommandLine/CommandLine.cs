@@ -54,6 +54,13 @@ namespace Commandline
 
         #endregion
 
+        protected override void Init()
+        {
+            RegisterBaseKeys();
+            AddCommand(new Command("help", Help, Help_AC));
+            AddCommand(new Command("exit", Exit));
+        }
+
         public override int Show()
         {
             RunKeyLoop();
@@ -103,33 +110,133 @@ namespace Commandline
             }
         }
 
-        protected override void Init()
+        #region Exposing command and key registry
+
+        public void AddCommand(Command cmd) {
+            CommandSet.Add(cmd.Id, cmd);
+        }
+
+        public void AddCommand(string id, Action<string> func)
         {
-            RegisterBaseKeys();
+            AddCommand(id, (s) => { func.Invoke(s); });
+        }
 
-            AddCommand(new Command("help", Help, Help_AC));
+        public void AddCommand(string id, Func<string, CommandResult> func)
+        {
+            AddCommand(new Command(id, func));
+        }
 
-            AddCommand(new Command("exit", (s) => { EndingLoop = true; }) {
-                Description = "Ends the current process." });
+        #endregion
 
-            //AddCommand(new Command("debugkey", (s) =>
-            //{
-            //    var key = Console.ReadKey();
-            //    Console.WriteLine();
-            //    Console.WriteLine(key.KeyChar);
-            //    Console.WriteLine((int)key.KeyChar);
-            //    Console.WriteLine(key.Key);
-            //}));
+        protected CommandResult RunCommand(string cmd)
+        {
+            return CommandSet[cmd.ReadToCharOrEnd(' ')].Function.Invoke(cmd);
+        }
 
-            AddCommand(new Command("cat", (s) => 
+        protected void ProcessCommand()
+        {
+            string cmd = CurrentCommand.ToString();
+            CommandHistory.Add(cmd);
+            Console.WriteLine();
+            string cmdId = cmd.ReadToCharOrEnd(' ');
+            if (CommandSet.ContainsKey(cmdId))
             {
-                string[] cmdParams;
-                Util.TrySplitCommand(s, out cmdParams);
-                for (int i = 1; i < cmdParams.Length; i++)
+                var result = RunCommand(CurrentCommand.ToString());
+                if (result.Resultcode != 0)
                 {
-                    Console.WriteLine(cmdParams[i]);
+                    Console.WriteLine(result.Message);
                 }
-            }));
+            } else
+            {
+                Console.WriteLine("\"{0}\" is not recognized as a command. Try \"help\"", cmdId);
+            }
+            EndOfCommand = true;
+        }
+        /// <summary>
+        /// Returns the index of the character that the current cursor position will edit in <see cref="CurrentCommand"/>
+        /// </summary>
+        protected int GetCurrEditPos()
+        {
+            
+
+            return 0;
+        }
+
+        #region Default commands and key behaviour
+
+        protected void AutoComplete()
+        {
+            string complete = string.Empty;
+            var command = CurrentCommand.ToString();
+            string[] cmd;
+            if (!Util.TrySplitCommand(command, out cmd)) return;
+            
+            if (cmd.Length > 1)
+            {
+                Command result;
+                if (CommandSet.TryGetValue(cmd [0], out result))
+                {
+                    complete = result.AutoComplete(command);
+                }
+            } else
+            {
+                foreach (var id in CommandSet.Keys)
+                {
+                    if (id.StartsWith(command))
+                    {
+                        complete = id.Remove(0, command.Length);
+                    }
+                }
+            }
+            CurrentCommand.Append(complete);
+            Console.Write(complete);
+        }
+
+        [CommandInfo("Prints the list of available commands, or provides help with the secified one.", "help [command]")]
+        protected CommandResult Help(string cmd)
+        {
+            var cmdParams = cmd.Split(' ');
+            if (cmdParams.Length > 1)
+            {
+                Command value;
+                if (!CommandSet.TryGetValue(cmdParams[1], out value))
+                    return new CommandResult(1, "\"" + cmdParams[1] + "\" is not recognized as a command");
+
+                Console.WriteLine(value.Help);
+
+                return CommandResult.Success;
+            }
+
+            Console.WriteLine("Available commands:\n");
+            foreach (var command in CommandSet)
+            {
+                Console.WriteLine("{0} : {1}", command.Key, command.Value.Description);
+            }
+
+            return CommandResult.Success;
+        }
+
+        [CommandInfo("Ends the current process.", "exit")]
+        protected CommandResult Exit(string cmd)
+        {
+            EndingLoop = true;
+            return CommandResult.Success;
+        }
+
+        protected string Help_AC(string cmd)
+        {
+            var command = cmd.Split(' ');
+            if (command.Length > 2) return string.Empty;
+
+            foreach (var id in CommandSet.Keys)
+            {
+                if (id.StartsWith(command[1]))
+                {
+                    return id.Remove(0, command[1].Length);
+                }
+            }
+
+            return string.Empty;
         }
 
         protected void RegisterBaseKeys()
@@ -201,131 +308,9 @@ namespace Commandline
                     Console.Write(CommandHistory[HistoryIndex]);
                 }
             };
-
-        }
-
-        protected void AutoComplete()
-        {
-            string complete = string.Empty;
-            var command = CurrentCommand.ToString();
-            string[] cmd;
-            if (!Util.TrySplitCommand(command, out cmd)) return;
-            
-            if (cmd.Length > 1)
-            {
-                Command result;
-                if (CommandSet.TryGetValue(cmd [0], out result))
-                {
-                    complete = result.AutoComplete(command);
-                }
-            } else
-            {
-                foreach (var id in CommandSet.Keys)
-                {
-                    if (id.StartsWith(command))
-                    {
-                        complete = id.Remove(0, command.Length);
-                    }
-                }
-            }
-            CurrentCommand.Append(complete);
-            Console.Write(complete);
-        }
-
-        protected string Help_AC(string cmd)
-        {
-            var command = cmd.Split(' ');
-            if (command.Length > 2) return string.Empty;
-
-            foreach (var id in CommandSet.Keys)
-            {
-                if (id.StartsWith(command[1]))
-                {
-                    return id.Remove(0, command[1].Length);
-                }
-            }
-
-            return string.Empty;
-        }
-
-        #region Exposing CommandSet
-
-        public void AddCommand(Command cmd) {
-            CommandSet.Add(cmd.Id, cmd);
-        }
-
-        public void AddCommand(string id, Action<string> func)
-        {
-            AddCommand(id, (s) => { func.Invoke(s); });
-        }
-
-        public void AddCommand(string id, Func<string, CommandResult> func)
-        {
-            AddCommand(new Command(id, func));
         }
 
         #endregion
 
-        protected CommandResult RunCommand(string cmd)
-        {
-            return CommandSet[cmd.ReadToCharOrEnd(' ')].Function.Invoke(cmd);
-        }
-
-        protected void ProcessCommand()
-        {
-            string cmd = CurrentCommand.ToString();
-            CommandHistory.Add(cmd);
-            Console.WriteLine();
-            string cmdId = cmd.ReadToCharOrEnd(' ');
-            if (CommandSet.ContainsKey(cmdId))
-            {
-                var result = RunCommand(CurrentCommand.ToString());
-                if (result.Resultcode != 0)
-                {
-                    Console.WriteLine(result.Message);
-                }
-            } else
-            {
-                Console.WriteLine("\"{0}\" is not recognized as a command. Try \"help\"", cmdId);
-            }
-            EndOfCommand = true;
-        }
-        /// <summary>
-        /// Returns the index of the character that the current cursor position will edit in <see cref="CurrentCommand"/>
-        /// </summary>
-        protected int GetCurrEditPos()
-        {
-            return 0;
-        }
-
-        [CommandInfo("Prints the list of available commands, or provides help with the secified one.", "help [command]")]
-        protected CommandResult Help(string cmd)
-        {
-            var cmdParams = cmd.Split(' ');
-            if (cmdParams.Length > 1)
-            {
-                Command value;
-                if (!CommandSet.TryGetValue(cmdParams[1], out value))
-                    return new CommandResult(1, "\"" + cmdParams[1] + "\" is not recognized as a command");
-
-                Console.WriteLine(value.Help);
-
-                return CommandResult.Success;
-            }
-
-            Console.WriteLine("Available commands:\n");
-            foreach (var command in CommandSet)
-            {
-                Console.WriteLine("{0} : {1}", command.Key, command.Value.Description);
-            }
-
-            return CommandResult.Success;
-        }
-
-        protected CommandResult Exit(string cmd)
-        {
-            EndingLoop = true;
-            return CommandResult.Success;
-        }
     }
 }
