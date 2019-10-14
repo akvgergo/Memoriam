@@ -14,7 +14,7 @@ namespace Memoriam
     {   
         static void Main(string[] args)
         {
-            
+            Console.ReadKey();
 
         }
 
