@@ -144,6 +144,8 @@ namespace Commandline
         /// <param name="amount">How many characters and indexes to move. Negative to move backwards.</param>
         protected void MoveCursor(int amount = 1)
         {
+            Console.CursorVisible = false;
+
             //sanity
             if (amount == 0) return;
             //underflow
@@ -163,19 +165,15 @@ namespace Commandline
             //standard
             else
             {
-                if (Console.CursorLeft + amount < Console.BufferWidth && Console.CursorLeft + amount >= 0)
-                {
-                    Console.CursorLeft += amount;
-                    EditIndex += amount;
-                    return;
-                }
-                else
-                {
-                    Console.CursorTop += amount / Console.BufferWidth + (amount > 0 ? 1 : -1);
-                    Console.CursorLeft = amount % Console.BufferWidth + (amount > 0 ? -1 : Console.BufferWidth);
-                    EditIndex += amount;
-                }
+                //this NEEDS to be optimized
+                string cmd = CurrentCommand.ToString();
+                Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
+                Console.Write(cmd.Substring(0, EditIndex + amount));
+                FormatCurrentCommand();
+                EditIndex += amount;
             }
+
+            Console.CursorVisible = true;
         }
 
         #region Exposing command and key registry
