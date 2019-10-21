@@ -7,6 +7,7 @@ using System.IO;
 using System.Diagnostics;
 using Ionic.Zip;
 using Commandline;
+using System.Threading;
 
 namespace Memoriam
 {
@@ -14,9 +15,8 @@ namespace Memoriam
     {   
         static void Main(string[] args)
         {
-            Console.ReadKey();
-
+            StartPage s = new StartPage();
+            s.Show();
         }
-
     }
 }

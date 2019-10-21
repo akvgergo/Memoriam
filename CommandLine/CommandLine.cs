@@ -15,9 +15,17 @@ namespace Commandline
         #region Command editor
 
         /// <summary>
-        /// The command currently in the input and edited by the user
+        /// The command currently in the input and edited by the user.
         /// </summary>
         protected StringBuilder CurrentCommand = new StringBuilder(30);
+        /// <summary>
+        /// The the console row <see cref="CurrentCommand"/> begins on.
+        /// </summary>
+        protected int CommandRow = 0;
+        /// <summary>
+        /// The index of the character that the current cursor position will edit in <see cref="CurrentCommand"/>.
+        /// </summary>
+        protected int EditIndex = 0;
         /// <summary>
         /// A string that will be displayed in front of the currently edited command, but itself can't be edited.
         /// </summary>
@@ -73,6 +81,8 @@ namespace Commandline
             {
                 Console.Write(CommandPrefix);
                 CurrentCommand.Clear();
+                EditIndex = 0;
+                CommandRow = Console.CursorTop;
                 while (true)
                 {
                     Action keyAction;
@@ -91,21 +101,68 @@ namespace Commandline
                     {
                         if (keyPress.KeyChar != '\0')
                         {
-                            if (Console.CursorLeft == CommandPrefix.Length + CurrentCommand.Length)
-                            {
-                                Console.Write(keyPress.KeyChar);
-                                CurrentCommand.Append(keyPress.KeyChar);
-                            }
-                            else
-                            {
-                                var pos = Console.CursorLeft;
-                                CurrentCommand.Insert(pos - CommandPrefix.Length, keyPress.KeyChar);
-                                Console.Write(CurrentCommand.ToString().Substring(pos - CommandPrefix.Length));
-                                Console.CursorLeft = pos + 1;
-                            }
+                            CurrentCommand.Insert(EditIndex, keyPress.KeyChar);
+                            MoveCursor();
                         }
-
                     }
+                    FormatCurrentCommand();
+                }
+            }
+        }
+
+        private void FormatCurrentCommand(bool keepCurPos = true)
+        {
+            var curPos = new { X = Console.CursorLeft, Y = Console.CursorTop };
+
+            Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
+            Console.Write(new string(CurrentCommand.ToString().Select(c => c == '\r' || c == '\n' ? c : ' ').ToArray()));
+
+            Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
+            Console.Write(CurrentCommand.ToString());
+
+            if (keepCurPos)
+                Console.SetCursorPosition(curPos.X, curPos.Y);
+        }
+
+        /// <summary>
+        /// Should be called before we remove characters from <see cref="CurrentCommand"/>.
+        /// <para>This just removes all the current visible characters in the buffer</para>
+        /// </summary>
+        protected void ClearRow()
+        {
+            var curPos = new { X = Console.CursorLeft, Y = Console.CursorTop };
+            Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
+            Console.Write(new string(CurrentCommand.ToString().Select(c => c == '\r' || c == '\n' ? c : ' ').ToArray()));
+            Console.SetCursorPosition(curPos.X, curPos.Y);
+        }
+
+        protected void MoveCursor(int amount = 1)
+        {
+            if (EditIndex + amount < 0)
+            {
+                EditIndex = 0;
+                Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
+                return;
+            }
+            else if (EditIndex + amount > CurrentCommand.Length)
+            {
+                EditIndex = CurrentCommand.Length;
+                FormatCurrentCommand(false);
+                return;
+            }
+            else
+            {
+                if (Console.CursorLeft + amount < Console.BufferWidth && Console.CursorLeft + amount > 0)
+                {
+                    Console.CursorLeft += amount;
+                    EditIndex += amount;
+                    return;
+                }
+                else
+                {
+                    Console.CursorTop += amount % Console.BufferWidth;
+                    Console.CursorLeft += amount % (Console.BufferWidth - 1);
+                    EditIndex += amount;
                 }
             }
         }
@@ -151,15 +208,6 @@ namespace Commandline
                 Console.WriteLine("\"{0}\" is not recognized as a command. Try \"help\"", cmdId);
             }
             EndOfCommand = true;
-        }
-        /// <summary>
-        /// Returns the index of the character that the current cursor position will edit in <see cref="CurrentCommand"/>
-        /// </summary>
-        protected int GetCurrEditPos()
-        {
-            
-
-            return 0;
         }
 
         #region Default commands and key behaviour
@@ -245,42 +293,29 @@ namespace Commandline
             FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false)] = ProcessCommand;
 
             FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, true, false, false)] = () => {
-                CurrentCommand.Append('\n');
-                Console.WriteLine();
+                CurrentCommand.Insert(EditIndex, '\r');
+                MoveCursor();
             };
 
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false)] = () => {
-                if (Console.CursorLeft < CurrentCommand.Length + CommandPrefix.Length)
-                    Console.CursorLeft++;
+                MoveCursor();
             };
 
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, false, false)] = () => {
-                if (Console.CursorLeft > CommandPrefix.Length)
-                    Console.CursorLeft--;
+                MoveCursor(-1);
             };
 
             FunctionKeys[new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false)] = () => {
-                if (Console.CursorLeft > CommandPrefix.Length)
-                {
-                    var pos = Console.CursorLeft;
-                    Console.CursorLeft--;
-                    Console.Write(new string(' ', CommandPrefix.Length + CurrentCommand.Length - Console.CursorLeft));
-                    CurrentCommand.Remove(pos - CommandPrefix.Length - 1, 1);
-                    Console.CursorLeft = pos - 1;
-                    Console.Write(CurrentCommand.ToString().Substring(Console.CursorLeft - CommandPrefix.Length));
-                    Console.CursorLeft = pos - 1;
-                }
+                if (CurrentCommand.Length == 0 || EditIndex == 0) return;
+                ClearRow();
+                CurrentCommand.Remove(EditIndex - 1, 1);
+                MoveCursor(-1);
             };
 
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.Delete, false, false, false)] = () => {
-                if (Console.CursorLeft < CommandPrefix.Length + CurrentCommand.Length) {
-                    var pos = Console.CursorLeft;
-                    Console.Write(new string(' ', CommandPrefix.Length + CurrentCommand.Length - Console.CursorLeft));
-                    CurrentCommand.Remove(pos - CommandPrefix.Length, 1);
-                    Console.CursorLeft = pos;
-                    Console.Write(CurrentCommand.ToString().Substring(Console.CursorLeft - CommandPrefix.Length));
-                    Console.CursorLeft = pos;
-                }
+                if (CurrentCommand.Length == 0 || EditIndex == CurrentCommand.Length) return;
+                ClearRow();
+                CurrentCommand.Remove(EditIndex, 1);
             };
 
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false)] = () => {
