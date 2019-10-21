@@ -76,6 +76,10 @@ namespace Commandline
             AutoComplete = autoComplete == null ? (s) => { return string.Empty; } : autoComplete;
         }
 
+        /// <summary>
+        /// Populates the <see cref="Help"/> and <see cref="Description"/> fields, if the <see cref="Function"/>
+        /// field of this instance has an associated <see cref="CommandInfoAttribute"/>.
+        /// </summary>
         private void TryPopulateInfo(Delegate d)
         {
             var helpAttr = d.Method.GetCustomAttributes(false)

@@ -112,12 +112,11 @@ namespace Commandline
 
         private void FormatCurrentCommand(bool keepCurPos = true)
         {
+            ClearRow();
+
             var curPos = new { X = Console.CursorLeft, Y = Console.CursorTop };
-
             Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
-            Console.Write(new string(CurrentCommand.ToString().Select(c => c == '\r' || c == '\n' ? c : ' ').ToArray()));
-
-            Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
+            
             Console.Write(CurrentCommand.ToString());
 
             if (keepCurPos)
@@ -126,33 +125,45 @@ namespace Commandline
 
         /// <summary>
         /// Should be called before we remove characters from <see cref="CurrentCommand"/>.
-        /// <para>This just removes all the current visible characters in the buffer</para>
+        /// <para>This just removes all the current visible characters in the buffer.</para>
         /// </summary>
         protected void ClearRow()
         {
+            Console.CursorVisible = false;
             var curPos = new { X = Console.CursorLeft, Y = Console.CursorTop };
             Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
             Console.Write(new string(CurrentCommand.ToString().Select(c => c == '\r' || c == '\n' ? c : ' ').ToArray()));
             Console.SetCursorPosition(curPos.X, curPos.Y);
+            Console.CursorVisible = true;
         }
 
+        /// <summary>
+        /// Moves the cursor a specified amount, moving between rows as necessary and keeping <see cref="EditIndex"/> in sync.
+        /// Should never overflow in any direction, but I would rather not unit test it.
+        /// </summary>
+        /// <param name="amount">How many characters and indexes to move. Negative to move backwards.</param>
         protected void MoveCursor(int amount = 1)
         {
+            //sanity
+            if (amount == 0) return;
+            //underflow
             if (EditIndex + amount < 0)
             {
                 EditIndex = 0;
                 Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
                 return;
             }
+            //overflow
             else if (EditIndex + amount > CurrentCommand.Length)
             {
                 EditIndex = CurrentCommand.Length;
                 FormatCurrentCommand(false);
                 return;
             }
+            //standard
             else
             {
-                if (Console.CursorLeft + amount < Console.BufferWidth && Console.CursorLeft + amount > 0)
+                if (Console.CursorLeft + amount < Console.BufferWidth && Console.CursorLeft + amount >= 0)
                 {
                     Console.CursorLeft += amount;
                     EditIndex += amount;
@@ -160,8 +171,8 @@ namespace Commandline
                 }
                 else
                 {
-                    Console.CursorTop += amount % Console.BufferWidth;
-                    Console.CursorLeft += amount % (Console.BufferWidth - 1);
+                    Console.CursorTop += amount / Console.BufferWidth + (amount > 0 ? 1 : -1);
+                    Console.CursorLeft = amount % Console.BufferWidth + (amount > 0 ? -1 : Console.BufferWidth);
                     EditIndex += amount;
                 }
             }
@@ -293,16 +304,24 @@ namespace Commandline
             FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false)] = ProcessCommand;
 
             FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, true, false, false)] = () => {
-                CurrentCommand.Insert(EditIndex, '\r');
+                CurrentCommand.Insert(EditIndex, '\n');
                 MoveCursor();
             };
 
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false)] = () => {
-                MoveCursor();
+                if (EditIndex == CurrentCommand.Length) return;
+                if (CurrentCommand.Length != 0 && CurrentCommand[EditIndex] == '\n')
+                    MoveCursor(Console.BufferWidth);
+                else
+                    MoveCursor();
             };
 
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, false, false)] = () => {
-                MoveCursor(-1);
+                if (EditIndex == 0) return;
+                if (CurrentCommand.Length != 0 && CurrentCommand[EditIndex - 1] == '\n')
+                    MoveCursor(-Console.BufferWidth);
+                else
+                    MoveCursor(-1);
             };
 
             FunctionKeys[new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false)] = () => {
@@ -321,9 +340,7 @@ namespace Commandline
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false)] = () => {
                 if (CommandHistory.Count != 0)
                 {
-                    Console.CursorLeft = CommandPrefix.Length;
-                    Console.Write(new string(' ', CurrentCommand.Length));
-                    Console.CursorLeft = CommandPrefix.Length;
+                    ClearRow();
                     HistoryIndex = HistoryIndex == 0 ? CommandHistory.Count - 1 : HistoryIndex - 1;
                     CurrentCommand.Clear();
                     CurrentCommand.Append(CommandHistory[HistoryIndex]);
@@ -334,9 +351,7 @@ namespace Commandline
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)] = () => {
                 if (CommandHistory.Count != 0)
                 {
-                    Console.CursorLeft = CommandPrefix.Length;
-                    Console.Write(new string(' ', CurrentCommand.Length));
-                    Console.CursorLeft = CommandPrefix.Length;
+                    ClearRow();
                     HistoryIndex = HistoryIndex == CommandHistory.Count - 1 ? 0 : HistoryIndex + 1;
                     CurrentCommand.Clear();
                     CurrentCommand.Append(CommandHistory[HistoryIndex]);
