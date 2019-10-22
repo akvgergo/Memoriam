@@ -15,8 +15,8 @@ namespace Memoriam
     {   
         static void Main(string[] args)
         {
-            StartPage s = new StartPage();
-            s.Show();
+            KeyReaderDialog d = new KeyReaderDialog();
+            d.Show();
         }
     }
 }

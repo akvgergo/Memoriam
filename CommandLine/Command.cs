@@ -56,7 +56,7 @@ namespace Commandline
             TryPopulateInfo(function);
             Id = id;
             Function = function;
-            AutoComplete = autoComplete == null ? (s) => { return string.Empty; } : autoComplete;
+            AutoComplete = autoComplete ?? ((s) => { return string.Empty; });
         }
 
         /// <summary>
@@ -73,7 +73,7 @@ namespace Commandline
             TryPopulateInfo(action);
             Id = id;
             Function = (s) => { action.Invoke(s); return CommandResult.Success; };
-            AutoComplete = autoComplete == null ? (s) => { return string.Empty; } : autoComplete;
+            AutoComplete = autoComplete ?? ((s) => { return string.Empty; });
         }
 
         /// <summary>

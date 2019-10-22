@@ -7,29 +7,11 @@ using System.Threading.Tasks;
 namespace Commandline
 {
     /// <summary>
-    /// A page with all the basic functionality to input and run registered <see cref="Command"/> instances, or assign functions to specific keys
+    /// A page with all the basic functionality to input and run registered <see cref="Command"/> instances.
     /// </summary>
-    public class CommandLine : ConsoleDialog
+    public class CommandLine : KeyReaderDialog
     {
 
-        #region Command editor
-
-        /// <summary>
-        /// The command currently in the input and edited by the user.
-        /// </summary>
-        protected StringBuilder CurrentCommand = new StringBuilder(30);
-        /// <summary>
-        /// The the console row <see cref="CurrentCommand"/> begins on.
-        /// </summary>
-        protected int CommandRow = 0;
-        /// <summary>
-        /// The index of the character that the current cursor position will edit in <see cref="CurrentCommand"/>.
-        /// </summary>
-        protected int EditIndex = 0;
-        /// <summary>
-        /// A string that will be displayed in front of the currently edited command, but itself can't be edited.
-        /// </summary>
-        public string CommandPrefix { get; protected set; } = ">";
         /// <summary>
         /// Tracks which previous command was grabbed from <see cref="CommandHistory"/> for navigating the history with the arrow keys.
         /// </summary>
@@ -39,144 +21,46 @@ namespace Commandline
         /// </summary>
         public List<string> CommandHistory = new List<string>();
         /// <summary>
-        /// Marks that <see cref="CurrentCommand"/> should be reset.
-        /// </summary>
-        protected bool EndOfCommand;
-
-        #endregion
-
-        #region Command execution
-
-        /// <summary>
         /// The set of commands this instance can run, accessible by their ID
         /// </summary>
         protected Dictionary<string, Command> CommandSet = new Dictionary<string, Command>();
-        /// <summary>
-        /// The set of actions this instance will perform if the associated <see cref="ConsoleKeyInfo"/> is read.
-        /// </summary>
-        protected Dictionary<ConsoleKeyInfo, Action> FunctionKeys = new Dictionary<ConsoleKeyInfo, Action>();
-        /// <summary>
-        /// Marks that this instance will exit <see cref="RunKeyLoop"/> after the current command is done executing.
-        /// </summary>
-        protected bool EndingLoop;
-
-        #endregion
 
         protected override void Init()
         {
             RegisterBaseKeys();
+
             AddCommand(new Command("help", Help, Help_AC));
             AddCommand(new Command("exit", Exit));
-        }
 
-        public override int Show()
-        {
-            RunKeyLoop();
-            return ResultValue;
-        }
+            FunctionKeys[new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false)] = AutoComplete;
+            FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false)] = ProcessCommand;
 
-        protected void RunKeyLoop()
-        {
-            while (!EndingLoop)
-            {
-                Console.Write(CommandPrefix);
-                CurrentCommand.Clear();
-                EditIndex = 0;
-                CommandRow = Console.CursorTop;
-                while (true)
+            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false)] = () => {
+                if (CommandHistory.Count != 0)
                 {
-                    Action keyAction;
-                    var keyPress = Console.ReadKey(true);
-
-                    if (FunctionKeys.TryGetValue(keyPress, out keyAction))
-                    {
-                        keyAction.Invoke();
-                        if (EndOfCommand)
-                        {
-                            EndOfCommand = false;
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        if (keyPress.KeyChar != '\0')
-                        {
-                            CurrentCommand.Insert(EditIndex, keyPress.KeyChar);
-                            MoveCursor();
-                        }
-                    }
-                    FormatCurrentCommand();
+                    ClearRow();
+                    HistoryIndex = HistoryIndex == 0 ? CommandHistory.Count - 1 : HistoryIndex - 1;
+                    CurrentText.Clear();
+                    CurrentText.Append(CommandHistory[HistoryIndex]);
+                    Console.Write(CommandHistory[HistoryIndex]);
                 }
-            }
+            };
+
+            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)] = () => {
+                if (CommandHistory.Count != 0)
+                {
+                    ClearRow();
+                    HistoryIndex = HistoryIndex == CommandHistory.Count - 1 ? 0 : HistoryIndex + 1;
+                    CurrentText.Clear();
+                    CurrentText.Append(CommandHistory[HistoryIndex]);
+                    Console.Write(CommandHistory[HistoryIndex]);
+                }
+            };
+
         }
 
-        private void FormatCurrentCommand(bool keepCurPos = true)
-        {
-            ClearRow();
 
-            var curPos = new { X = Console.CursorLeft, Y = Console.CursorTop };
-            Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
-            
-            Console.Write(CurrentCommand.ToString());
 
-            if (keepCurPos)
-                Console.SetCursorPosition(curPos.X, curPos.Y);
-        }
-
-        /// <summary>
-        /// Should be called before we remove characters from <see cref="CurrentCommand"/>.
-        /// <para>This just removes all the current visible characters in the buffer.</para>
-        /// </summary>
-        protected void ClearRow()
-        {
-            Console.CursorVisible = false;
-            var curPos = new { X = Console.CursorLeft, Y = Console.CursorTop };
-            Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
-            Console.Write(new string(CurrentCommand.ToString().Select(c => c == '\r' || c == '\n' ? c : ' ').ToArray()));
-            Console.SetCursorPosition(curPos.X, curPos.Y);
-            Console.CursorVisible = true;
-        }
-
-        /// <summary>
-        /// Moves the cursor a specified amount, moving between rows as necessary and keeping <see cref="EditIndex"/> in sync.
-        /// Should never overflow in any direction, but I would rather not unit test it.
-        /// </summary>
-        /// <param name="amount">How many characters and indexes to move. Negative to move backwards.</param>
-        protected void MoveCursor(int amount = 1)
-        {
-            Console.CursorVisible = false;
-
-            //sanity
-            if (amount == 0) return;
-            //underflow
-            if (EditIndex + amount < 0)
-            {
-                EditIndex = 0;
-                Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
-                return;
-            }
-            //overflow
-            else if (EditIndex + amount > CurrentCommand.Length)
-            {
-                EditIndex = CurrentCommand.Length;
-                FormatCurrentCommand(false);
-                return;
-            }
-            //standard
-            else
-            {
-                //this NEEDS to be optimized
-                string cmd = CurrentCommand.ToString();
-                Console.SetCursorPosition(CommandPrefix.Length, CommandRow);
-                Console.Write(cmd.Substring(0, EditIndex + amount));
-                FormatCurrentCommand();
-                EditIndex += amount;
-            }
-
-            Console.CursorVisible = true;
-        }
-
-        #region Exposing command and key registry
 
         public void AddCommand(Command cmd) {
             CommandSet.Add(cmd.Id, cmd);
@@ -192,8 +76,6 @@ namespace Commandline
             AddCommand(new Command(id, func));
         }
 
-        #endregion
-
         protected CommandResult RunCommand(string cmd)
         {
             return CommandSet[cmd.ReadToCharOrEnd(' ')].Function.Invoke(cmd);
@@ -201,13 +83,13 @@ namespace Commandline
 
         protected void ProcessCommand()
         {
-            string cmd = CurrentCommand.ToString();
+            string cmd = CurrentText.ToString();
             CommandHistory.Add(cmd);
             Console.WriteLine();
             string cmdId = cmd.ReadToCharOrEnd(' ');
             if (CommandSet.ContainsKey(cmdId))
             {
-                var result = RunCommand(CurrentCommand.ToString());
+                var result = RunCommand(CurrentText.ToString());
                 if (result.Resultcode != 0)
                 {
                     Console.WriteLine(result.Message);
@@ -216,15 +98,13 @@ namespace Commandline
             {
                 Console.WriteLine("\"{0}\" is not recognized as a command. Try \"help\"", cmdId);
             }
-            EndOfCommand = true;
+            EndOfInput = true;
         }
-
-        #region Default commands and key behaviour
 
         protected void AutoComplete()
         {
             string complete = string.Empty;
-            var command = CurrentCommand.ToString();
+            var command = CurrentText.ToString();
             string[] cmd;
             if (!Util.TrySplitCommand(command, out cmd)) return;
             
@@ -245,7 +125,7 @@ namespace Commandline
                     }
                 }
             }
-            CurrentCommand.Append(complete);
+            CurrentText.Append(complete);
             Console.Write(complete);
         }
 
@@ -295,70 +175,5 @@ namespace Commandline
 
             return string.Empty;
         }
-
-        protected void RegisterBaseKeys()
-        {
-            FunctionKeys[new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false)] = AutoComplete;
-            FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false)] = ProcessCommand;
-
-            FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, true, false, false)] = () => {
-                CurrentCommand.Insert(EditIndex, '\n');
-                MoveCursor();
-            };
-
-            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false)] = () => {
-                if (EditIndex == CurrentCommand.Length) return;
-                if (CurrentCommand.Length != 0 && CurrentCommand[EditIndex] == '\n')
-                    MoveCursor(Console.BufferWidth);
-                else
-                    MoveCursor();
-            };
-
-            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, false, false)] = () => {
-                if (EditIndex == 0) return;
-                if (CurrentCommand.Length != 0 && CurrentCommand[EditIndex - 1] == '\n')
-                    MoveCursor(-Console.BufferWidth);
-                else
-                    MoveCursor(-1);
-            };
-
-            FunctionKeys[new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false)] = () => {
-                if (CurrentCommand.Length == 0 || EditIndex == 0) return;
-                ClearRow();
-                CurrentCommand.Remove(EditIndex - 1, 1);
-                MoveCursor(-1);
-            };
-
-            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.Delete, false, false, false)] = () => {
-                if (CurrentCommand.Length == 0 || EditIndex == CurrentCommand.Length) return;
-                ClearRow();
-                CurrentCommand.Remove(EditIndex, 1);
-            };
-
-            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false)] = () => {
-                if (CommandHistory.Count != 0)
-                {
-                    ClearRow();
-                    HistoryIndex = HistoryIndex == 0 ? CommandHistory.Count - 1 : HistoryIndex - 1;
-                    CurrentCommand.Clear();
-                    CurrentCommand.Append(CommandHistory[HistoryIndex]);
-                    Console.Write(CommandHistory[HistoryIndex]);
-                }
-            };
-
-            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)] = () => {
-                if (CommandHistory.Count != 0)
-                {
-                    ClearRow();
-                    HistoryIndex = HistoryIndex == CommandHistory.Count - 1 ? 0 : HistoryIndex + 1;
-                    CurrentCommand.Clear();
-                    CurrentCommand.Append(CommandHistory[HistoryIndex]);
-                    Console.Write(CommandHistory[HistoryIndex]);
-                }
-            };
-        }
-
-        #endregion
-
     }
 }
