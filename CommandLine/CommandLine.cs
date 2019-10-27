@@ -38,10 +38,10 @@ namespace Commandline
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false)] = () => {
                 if (CommandHistory.Count != 0)
                 {
-                    ClearRow();
+                    ClearBuffer();
                     HistoryIndex = HistoryIndex == 0 ? CommandHistory.Count - 1 : HistoryIndex - 1;
-                    CurrentText.Clear();
-                    CurrentText.Append(CommandHistory[HistoryIndex]);
+                    FieldText.Clear();
+                    FieldText.Append(CommandHistory[HistoryIndex]);
                     Console.Write(CommandHistory[HistoryIndex]);
                 }
             };
@@ -49,10 +49,10 @@ namespace Commandline
             FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)] = () => {
                 if (CommandHistory.Count != 0)
                 {
-                    ClearRow();
+                    ClearBuffer();
                     HistoryIndex = HistoryIndex == CommandHistory.Count - 1 ? 0 : HistoryIndex + 1;
-                    CurrentText.Clear();
-                    CurrentText.Append(CommandHistory[HistoryIndex]);
+                    FieldText.Clear();
+                    FieldText.Append(CommandHistory[HistoryIndex]);
                     Console.Write(CommandHistory[HistoryIndex]);
                 }
             };
@@ -83,13 +83,13 @@ namespace Commandline
 
         protected void ProcessCommand()
         {
-            string cmd = CurrentText.ToString();
+            string cmd = FieldText.ToString();
             CommandHistory.Add(cmd);
             Console.WriteLine();
             string cmdId = cmd.ReadToCharOrEnd(' ');
             if (CommandSet.ContainsKey(cmdId))
             {
-                var result = RunCommand(CurrentText.ToString());
+                var result = RunCommand(FieldText.ToString());
                 if (result.Resultcode != 0)
                 {
                     Console.WriteLine(result.Message);
@@ -104,7 +104,7 @@ namespace Commandline
         protected void AutoComplete()
         {
             string complete = string.Empty;
-            var command = CurrentText.ToString();
+            var command = FieldText.ToString();
             string[] cmd;
             if (!Util.TrySplitCommand(command, out cmd)) return;
             
@@ -125,7 +125,7 @@ namespace Commandline
                     }
                 }
             }
-            CurrentText.Append(complete);
+            FieldText.Append(complete);
             Console.Write(complete);
         }
 
