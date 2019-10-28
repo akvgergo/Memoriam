@@ -16,11 +16,8 @@ namespace Memoriam
     {   
         static void Main(string[] args)
         {
-            Console.WriteLine(Console.ReadLine());
-            Console.WriteLine("lorem ipsum dolor sit amet");
-            Console.WriteLine("apple\torange\tpear");
-            Console.WriteLine("obsidian\tstone\tobsidian");
-            Console.ReadKey();
+            KeyReaderDialog dialog = new KeyReaderDialog();
+            dialog.Show();
         }
     }
 }

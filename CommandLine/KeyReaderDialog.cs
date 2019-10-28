@@ -62,11 +62,6 @@ namespace Commandline
         /// </summary>
         protected bool EndOfInput { get; set; }
         /// <summary>
-        /// Marks that <see cref="FormatField(bool)"/> should be called when appropriate.
-        /// </summary>
-        protected bool ShouldFormat { get; set; }
-
-        /// <summary>
         /// The set of actions this instance will perform if the associated <see cref="ConsoleKeyInfo"/> is read.
         /// </summary>
         protected Dictionary<ConsoleKeyInfo, Action> FunctionKeys = new Dictionary<ConsoleKeyInfo, Action>();
@@ -77,6 +72,7 @@ namespace Commandline
         /// </summary>
         protected override void Init()
         {
+            for (int i = 0; i < NEW_FIELD_HEIGHT; i++) FieldRows.Add(new StringBuilder(Console.BufferWidth));
             RegisterBaseKeys(); 
         }
 
@@ -87,50 +83,143 @@ namespace Commandline
         }
 
         /// <summary>
-        /// Ads the specified character to <see cref="FieldRows"/>
+        /// Adds the specified character to <see cref="FieldRows"/>.
         /// </summary>
         /// <param name="character">The character to append or insert.</param>
         protected void AddText(char character)
         {
             var row = FieldRows[CurrentRow];
-            if (row.Length >= 80)
+            if (row.Length >= Console.BufferWidth - (CurrentRow == 0 ? Prefix.Length : 0))
             {
-                
+                ShiftInsert(character.ToString());
+                return;
             }
-            row.Append(character);
+            row.Insert(CurrentChar, character);
+            SyncBuffer(CurrentRow);
             MoveCursor();
         }
 
-        protected void ShiftChars(int amount)
+        /// <summary>
+        /// Adds the specified string to <see cref="FieldRows"/>.
+        /// </summary>
+        /// <param name="text">The string to append or insert</param>
+        protected void AddText(string text)
         {
-            //sanity
-            if (amount == 0) return;
-
-            if (amount > 0)
+            var row = FieldRows[CurrentRow];
+            if (row.Length + text.Length >= Console.BufferWidth - (CurrentRow == 0 ? Prefix.Length : 0))
             {
-                string word;
-                for (int rowIndex = CurrentRow; rowIndex < FieldRows.Count; rowIndex++)
-                {
-                    
-                }
+                ShiftInsert(text);
+                return;
             }
-            
+            row.Insert(CurrentChar, text);
+            SyncBuffer(CurrentRow);
+            MoveCursor(text.Length);
+        }
+
+        protected void ClearField()
+        {
+            ClearBuffer();
+            FieldRows.Select(sb => sb.Clear());
+            Console.SetCursorPosition(0, FieldBeginPos);
+            Console.Write(Prefix);
+        }
+
+        protected void SyncBuffer(int row = -1) {
+
+            //sanity
+            if (row >= FieldRows.Count) throw new ArgumentOutOfRangeException("row");
+
+            //for placing the cursor back later
+            var curPos = new { X = Console.CursorLeft, Y = Console.CursorTop };
+
+            //sync everything
+            if (row < 0)
+            {
+                ClearBuffer();
+                Console.SetCursorPosition(0, FieldBeginPos);
+                Console.Write(Prefix);
+                foreach (var item in FieldRows)
+                {
+                    Console.Write(row);
+                }
+                Console.SetCursorPosition(curPos.X, curPos.Y);
+                return;
+            }
+
+            //sync the specifc row
+            ClearBuffer(row);
+            Console.SetCursorPosition(0, row + FieldBeginPos);
+            if (CurrentRow == 0) Console.Write(Prefix);
+            Console.Write(FieldRows[row]);
+
+            Console.SetCursorPosition(curPos.X, curPos.Y);
+        }
+
+        protected void ShiftInsert(string text)
+        {
+            //TODO do-while? 
+            StringBuilder carry = new StringBuilder();
+            var row = FieldRows[CurrentRow];
+            row.Insert(CurrentChar, text);
+            int rowIndex = CurrentRow + 1;
+            var rowLengthGoal = Console.BufferWidth - (CurrentRow == 0 ? Prefix.Length : 0);
+
+            //TODO -gergő could be optimized I'm sure
+            var carryStr = new string(row.ToString().Reverse().TakeWhile((c, i) => char.IsWhiteSpace(c) && row.Length - i <= rowLengthGoal).Reverse().ToArray());
+            carry.Append(carryStr);
+            row.Remove(row.Length - carryStr.Length, carryStr.Length);
+
+            //moving the excess down the rows
+            while (carry.Length != 0)
+            {
+                //make sure the field is big enough
+                if (rowIndex == FieldRows.Count) FieldRows.Add(new StringBuilder(Console.BufferWidth));
+
+                //we can just insert the row if the length is just right, or if it would be a new line anyway
+                if (carry.Length == Console.BufferWidth || carry[carry.Length -1] == '\n')
+                {
+                    FieldRows.Insert(rowIndex, carry);
+                    break;
+                }
+                
+                //the length is smaller than the buffer, we're done
+                if (FieldRows[rowIndex].Length + carry.Length < Console.BufferWidth)
+                {
+                    FieldRows[rowIndex].Insert(0, carry);
+                    break;
+                }
+
+                //reitarete on this. worst case would be going through all the rows
+                FieldRows[rowIndex].Insert(0, carry);
+                carry.Clear();
+
+                carryStr = new string(FieldRows[rowIndex].ToString().Reverse().TakeWhile((c, i) => char.IsWhiteSpace(c) && FieldRows[rowIndex].Length - i <= Console.BufferWidth).Reverse().ToArray());
+                carry.Append(carryStr);
+                FieldRows[rowIndex].Remove(FieldRows[rowIndex].Length - carryStr.Length, carryStr.Length);
+                rowIndex++;
+            }
+
+            //redraw the buffer
+            for (int i = CurrentRow; i <= rowIndex; i++) SyncBuffer(i);
+
         }
 
         protected virtual void RunKeyLoop()
         {
-            while (!EndingLoop)
+
+            do
             {
                 Console.Write(Prefix);
                 FieldRows.Select(sb => sb.Clear());
                 CurrentChar = 0;
+                CurrentRow = 0;
                 FieldBeginPos = Console.CursorTop;
                 while (true)
                 {
                     Action keyAction;
                     var keyPress = Console.ReadKey(true);
                     Console.CursorVisible = false;
-                    
+
                     if (FunctionKeys.TryGetValue(keyPress, out keyAction))
                     {
                         keyAction.Invoke();
@@ -138,9 +227,6 @@ namespace Commandline
                         {
                             EndOfInput = false;
                             break;
-                        } else
-                        {
-                            ShouldFormat = true;
                         }
                     }
                     else
@@ -150,11 +236,9 @@ namespace Commandline
                             AddText(keyPress.KeyChar);
                         }
                     }
-                    if (ShouldFormat)
-                        FormatField();
                     Console.CursorVisible = true;
                 }
-            }
+            } while (!EndingLoop);
         }
 
         /// <summary>
@@ -165,150 +249,69 @@ namespace Commandline
         protected void ClearBuffer(int row = -1)
         {
             //sanity
-            if (row > FieldRows.Count - 1) throw new ArgumentOutOfRangeException("row");
+            if (row >= FieldRows.Count) throw new ArgumentOutOfRangeException("row");
 
+            //not changing the cursor position
             var curPos = new { X = Console.CursorLeft, Y = Console.CursorTop };
+
             string clear = new string('\0', Console.BufferWidth);
+            //clear all
             if (row < 0)
             {
-                Console.SetCursorPosition(Prefix.Length, FieldBeginPos);
+                Console.SetCursorPosition(0, FieldBeginPos);
                 for (int i = 0; i < FieldRows.Count; i++)
                 {
                     Console.Write(clear);
                 }
             } 
-            else
+            else //clear specified
             {
                 Console.SetCursorPosition(0, FieldBeginPos + row);
                 Console.Write(clear);
             }
+
             Console.SetCursorPosition(curPos.X, curPos.Y);
         }
 
         /// <summary>
-        /// Moves the cursor a specified amount, moving between rows as necessary and keeping <see cref="CurrentChar"/> in sync.
-        /// Can receive and safely handle absurd values, should never overflow in any direction.
+        /// Moves the cursor a specified amount, moving between rows as necessary and keeping
+        /// <see cref="CurrentChar"/> and <see cref="CurrentRow"/> in sync.
         /// </summary>
         /// <param name="amount">How many characters and indexes to move. Negative to move backwards.</param>
         protected void MoveCursor(int amount = 1)
         {
             //sanity
             if (amount == 0) return;
-            //underflow
-            if (CurrentChar + amount < 0)
+
+            int charIndex = CurrentChar + amount;
+
+            if (charIndex >= 0 && charIndex < Console.BufferWidth)
             {
-                CurrentChar = 0;
-                Console.SetCursorPosition(Prefix.Length, FieldBeginPos);
+                CurrentChar += amount;
             }
-            //overflow
-            else if (CurrentChar + amount > FieldText.Length)
-            {
-                CurrentChar = FieldText.Length;
-                FormatField(false);
-            }
-            //standard
             else
             {
-                //TODO: -gergő this NEEDS to be optimized, for at least 1 and -1 values
-                CurrentChar += amount;
-                FormatField();
-            }
-        }
-
-        //UNDONE: -gergő needs work
-        /// <summary>
-        /// Attempts to format the text in the current field in a sensible way
-        /// </summary>
-        /// <param name="keepCurPos"></param>
-        private void FormatField(bool keepCurPos = true)
-        {
-            ClearBuffer();
-            
-            Console.SetCursorPosition(Prefix.Length, FieldBeginPos);
-
-            FieldHeight = 1;
-            int curPosX = Console.CursorTop == FieldBeginPos ? Prefix.Length : 0;
-            var curPosY = FieldBeginPos;
-            var searchEditIndex = keepCurPos;
-            StringBuilder row = new StringBuilder(Console.BufferWidth);
-            StringBuilder word = new StringBuilder();
-            int width = Console.BufferWidth - Prefix.Length;
-            int i;
-
-            //split up the text in a way that it neatly fits the console, splitting into words then rows as it fits
-            //also searching for the cursor position that corresponds to EditIndex
-            for (i = 0; i < FieldText.Length; i++)
-            {
-                bool isWhiteSpace = char.IsWhiteSpace(FieldText[i]);
-                word.Append(FieldText[i]);
-
-                //the word itself is bigger than a row should be, nothing we can format
-                if (word.Length >= width)
+                if (charIndex > 0)
                 {
-                    Console.Write(row);
-                    row.Clear();
-                    Console.Write(word);
-                    word.Clear();
-                    if (searchEditIndex) curPosY++;
-                    FieldHeight++;
-                    width = Console.BufferWidth;
-                    continue;
-                }
-
-                //if the current word added to the row would be bigger than the console horizontal buffer, we start a new row instead
-                if (row.Length + word.Length > width)
-                {
-                    Console.WriteLine(row);
-                    row.Clear();
-                    if (searchEditIndex) curPosY++;
-                    FieldHeight++;
-                    width = Console.BufferWidth;
-                }
-
-                //each whitespace creates a new word
-                if (isWhiteSpace)
-                {
-                    if (FieldText[i] == '\n') //also start a new row if the user input has line breaks
+                    amount -= CurrentChar;
+                    while (amount >= FieldRows[CurrentRow].Length)
                     {
-                        row.Append(word);
-                        word.Clear();
-                        Console.Write(row);
-                        row.Clear();
-                        if (searchEditIndex) curPosY++;
-                        FieldHeight++;
-                        width = Console.BufferWidth;
+                        amount -= FieldRows[CurrentRow++].Length;
                     }
-
-                    row.Append(word);
-                    word.Clear();
+                    CurrentChar += amount;
                 }
-
-                //the current cursor position is the EditIndex, remember that
-                if (CurrentChar - 1 == i)
+                else
                 {
-                    curPosX = Console.CursorTop == FieldBeginPos ? Prefix.Length + row.Length + word.Length : row.Length + word.Length;
-                    searchEditIndex = false;
+                    amount += CurrentChar;
+                    while (amount <= FieldRows[CurrentRow].Length)
+                    {
+                        amount += FieldRows[CurrentRow--].Length;
+                    }
+                    CurrentChar -= amount;
                 }
             }
 
-            row.Append(word);
-            Console.Write(row);
-
-            if (CurrentChar == i)
-                curPosX = Console.CursorTop == FieldBeginPos ? Prefix.Length + row.Length : row.Length;
-            
-
-            if (keepCurPos)
-            {
-                if (curPosX >= Console.BufferWidth)
-                {
-                    curPosY += curPosX / Console.BufferWidth;
-                    curPosX %= Console.BufferWidth;
-                }
-                Console.SetCursorPosition(curPosX, curPosY);
-            }
-
-            ShouldFormat = false;
+            Console.SetCursorPosition((CurrentRow == 0 ? Prefix.Length : 0) + CurrentChar, FieldBeginPos + CurrentRow);
         }
 
         protected virtual void RegisterBaseKeys()
@@ -326,14 +329,14 @@ namespace Commandline
             };
 
             FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false)] = () => {
-                FieldText.Insert(CurrentChar, '\n');
+                AddText('\n');
                 MoveCursor();
             };
 
             FunctionKeys[new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false)] = () => {
                 if (FieldText.Length == 0 || CurrentChar == 0) return;
-                ClearBuffer();
-                FieldText.Remove(CurrentChar - 1, 1);
+                FieldRows[CurrentRow].Remove(CurrentChar - 1, 1);
+                SyncBuffer(CurrentRow);
                 MoveCursor(-1);
             };
 

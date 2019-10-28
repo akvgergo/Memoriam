@@ -35,27 +35,27 @@ namespace Commandline
             FunctionKeys[new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false)] = AutoComplete;
             FunctionKeys[new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false)] = ProcessCommand;
 
-            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false)] = () => {
-                if (CommandHistory.Count != 0)
-                {
-                    ClearBuffer();
-                    HistoryIndex = HistoryIndex == 0 ? CommandHistory.Count - 1 : HistoryIndex - 1;
-                    FieldText.Clear();
-                    FieldText.Append(CommandHistory[HistoryIndex]);
-                    Console.Write(CommandHistory[HistoryIndex]);
-                }
-            };
+            //FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false)] = () => {
+            //    if (CommandHistory.Count != 0)
+            //    {
+            //        ClearBuffer();
+            //        HistoryIndex = HistoryIndex == 0 ? CommandHistory.Count - 1 : HistoryIndex - 1;
+            //        FieldText.Clear();
+            //        FieldText.Append(CommandHistory[HistoryIndex]);
+            //        Console.Write(CommandHistory[HistoryIndex]);
+            //    }
+            //};
 
-            FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)] = () => {
-                if (CommandHistory.Count != 0)
-                {
-                    ClearBuffer();
-                    HistoryIndex = HistoryIndex == CommandHistory.Count - 1 ? 0 : HistoryIndex + 1;
-                    FieldText.Clear();
-                    FieldText.Append(CommandHistory[HistoryIndex]);
-                    Console.Write(CommandHistory[HistoryIndex]);
-                }
-            };
+            //FunctionKeys[new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)] = () => {
+            //    if (CommandHistory.Count != 0)
+            //    {
+            //        ClearBuffer();
+            //        HistoryIndex = HistoryIndex == CommandHistory.Count - 1 ? 0 : HistoryIndex + 1;
+            //        FieldText.Clear();
+            //        FieldText.Append(CommandHistory[HistoryIndex]);
+            //        Console.Write(CommandHistory[HistoryIndex]);
+            //    }
+            //};
 
         }
 
@@ -125,7 +125,8 @@ namespace Commandline
                     }
                 }
             }
-            FieldText.Append(complete);
+
+            AddText(complete);
             Console.Write(complete);
         }
 
